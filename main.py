@@ -75,7 +75,7 @@ enemies.append(EnemyFly(
     sprite_walk_list_right=fly_enemy_right,
     sprite_walk_list_left=fly_enemy_left,
     start_pos=(200, HEIGHT // 2),
-    territory_limits=(150, min(350, WIDTH - 50)),
+    territory_limits=(50, min(350, WIDTH - 50)),
     speed=2
 ))
 
@@ -84,7 +84,7 @@ enemies.append(EnemyFly(
     sprite_walk_list_right=fly_enemy_right,
     sprite_walk_list_left=fly_enemy_left,
     start_pos=(500, HEIGHT // 2),
-    territory_limits=(100, WIDTH - 100),
+    territory_limits=(50, WIDTH - 50),
     speed=2
 ))
 

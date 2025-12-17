@@ -405,7 +405,7 @@ def update(dt):
         if hasattr(e, 'actor'):
             # keep enemies vertically inside screen; slug may leave horizontally
             if isinstance(e, EnemySlug):
-                e.actor.y = max(0, min(e.actor.y, current_height - 100))
+                e.place_on_ground()
             else:
                 e.actor.x = max(0, min(e.actor.x, current_width - 50))
                 e.actor.y = max(0, min(e.actor.y, current_height - 100))
@@ -418,14 +418,16 @@ def update(dt):
                 _game_state.person.bottom = g.top
                 globals()['velocity_y'] = 0
                 globals()['on_ground'] = True
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Erro: {e}")
 
     # Coleta de diamante
     try:
         if _game_state.diamond and _game_state.diamond.active and _game_state.person.colliderect(_game_state.diamond.actor):
             score += 1
             _game_state.diamond.collect()
+            if sound_on:
+                sounds.diamondseffect.play()
 
             new_difficulty = score // 10
             if new_difficulty > difficulty:
@@ -435,15 +437,15 @@ def update(dt):
                 # aumentar velocidade do diamante uma vez por nível
                 try:
                     _game_state.diamond.speed += 17 * diff_increase
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Erro: {e}")
 
                 # aumentar velocidade dos inimigos
                 for ee in _game_state.enemies:
                     if hasattr(ee, 'speed'):
                         ee.speed += 0.5 * diff_increase
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Erro: {e}")
 
     # Colisão com inimigos (dano)
     for e in _game_state.enemies:
@@ -451,8 +453,9 @@ def update(dt):
         if hasattr(e, 'get_rect'):
             try:
                 rect = e.get_rect()
-            except Exception:
+            except Exception as e:
                 rect = None
+                print(f"Erro: {e}")
         target = rect if rect is not None else (e.actor if hasattr(e, 'actor') else None)
         try:
             if target is not None and _game_state.person.colliderect(target) and invencible == 0:
@@ -463,12 +466,11 @@ def update(dt):
                     _game_state.person.image = SPRITE_HURT
                 if sound_on:
                     try:
-                        print("SOM")
                         sounds.eep.play()
                     except Exception:
                         pass
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Erro: {e}")
 
     # Atualizar sprite de pulo
     if not on_ground and hurt_timer == 0:
@@ -490,8 +492,8 @@ def update(dt):
                     _game_state.person.image = walk_sprites_person_right[walk_index]
                 else:
                     _game_state.person.image = walk_sprites_person_left[walk_index]
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Erro: {e}")
 
     # Idle (parado)
     elif hurt_timer == 0:
@@ -508,6 +510,9 @@ def update(dt):
         globals()['hurt_timer'] -= 1
         if hurt_timer == 0:
             _game_state.person.image = SPRITE_NORMAL
+
+
+
 # Função especial do pgzero para detectar mudanças de tamanho
 def on_resize(width, height):
     try:

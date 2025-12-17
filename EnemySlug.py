@@ -48,6 +48,10 @@ class EnemySlug:
         except:
             GROUND_Y = None
 
+        from config import GROUND_Y, GRASS_SIZE
+        self.place_on_ground(GROUND_Y, GRASS_SIZE)
+
+
         # Se está fora da tela, contar tempo para respawn
         if self.is_offscreen:
             self.respawn_timer += 1

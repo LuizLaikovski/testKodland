@@ -215,6 +215,9 @@ class EnemySlug:
             # fallback: não fazer nada
             pass
 
+    def getSpeed():
+        return self.speed
+
     def draw(self):
         """Desenha a lesma se estiver visível"""
         # Se está offscreen, desenhar uma representação na borda correspondente

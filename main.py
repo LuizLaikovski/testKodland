@@ -7,11 +7,14 @@ from Enemy import EnemyFly
 from EnemySlug import EnemySlug
 from sprites_fly import *
 from sprites_slug import *
+from Diamond import Diamond
+from Difficulty import Difficulty
 
 # Configurações do Jogo
 game_state = "menu"
 music_on = True
 sound_on = True
+difficulty = Difficulty(difficultyInitial=1)
 
 current_lifes = MAX_LIFES
 invencible = 0
@@ -31,6 +34,8 @@ hearts = []
 backgrounds = []
 grounds = []
 enemies = []
+score = 0
+difficulty = 0  # dificuldade atual (aumenta a cada 10 pontos)
 
 # Função para recriar todos os elementos gráficos com base no tamanho atual
 def rebuild_game_elements():
@@ -71,7 +76,7 @@ def rebuild_game_elements():
         heart.y = HUD_MARGIN_Y
         hearts.append(heart)
 
-# ADICIONAR UM INIMIGO PARA O PERSONAGEM DESVIAR
+# ADICIONAR OS INIMIGOS
 enemies.append(EnemyFly(
     sprite_idle_list=[fly_stop],
     sprite_walk_list_right=fly_enemy_right,
@@ -96,6 +101,8 @@ enemies.append(EnemySlug(
     sprite_walk_list_right=slug_walk_right,
     sprite_walk_list_left=slug_walk_left
 ))
+
+diamond = Diamond()
 
 # Construir elementos iniciais
 rebuild_game_elements()
@@ -135,8 +142,64 @@ def draw_game():
         g.draw()
     for e in enemies:
         e.draw()
+    
+    # desenhar score usando sprites para cada dígito (hud_0..hud_9)
+    draw_score_images(score, topleft=(960, 30))
+    diamond.draw()
     person.draw()
     draw_hud()
+
+
+def increase_difficulty(amount):
+    """Increase difficulty by `amount`: raise enemy speeds.
+
+    This function iterates current enemies and increases their `speed`.
+    It avoids increasing speeds for enemies that don't have `speed` attribute.
+    """
+    if amount <= 0:
+        return
+    for e in enemies:
+        try:
+            # aumente a velocidade base do inimigo
+            if hasattr(e, 'speed'):
+                # opcional: limitar velocidade máxima
+                max_speed = 12
+                e.speed = min(max_speed, e.speed + amount)
+        except Exception:
+            pass
+
+
+def draw_score_images(value, topleft=(20, 60), digit_spacing=2):
+    """Desenha o score usando imagens `hud_0`..`hud_9`.
+
+    `topright` é a tupla (x, y) onde o lado direito do número será posicionado.
+    Os dígitos são desenhados da direita para a esquerda.
+    """
+    try:
+        x_right, y_top = topleft
+        s = str(int(value)) if value is not None else '0'
+    except Exception:
+        x_right, y_top = 20, 60
+        s = '0'
+
+    # desenhar pelo menos um dígito
+    if s == '':
+        s = '0'
+
+    cur_x = x_right
+    # percorre os dígitos da direita para a esquerda
+    for ch in reversed(s):
+        img_name = f'hud_{ch}'
+        try:
+            d = Actor(img_name)
+        except Exception:
+            # se a imagem não existir, pular (evita crash)
+            continue
+        # posiciona o dígito com seu canto superior-direito em (cur_x, y_top)
+        d.topleft = (cur_x - d.width, y_top)
+        d.draw()
+        # mover cursor para a esquerda para o próximo dígito
+        cur_x -= (d.width + digit_spacing)
 
 # Desenha a tela de Game Over
 def draw_game_over():
@@ -213,12 +276,14 @@ def draw():
         else:
             draw_game_over()
 
-def update():
+def update(dt):
     global invencible, hurt_timer, walk_index, walk_timer, current_lifes, velocity_y, enemy_velocity_y
-    global on_ground, enemy_on_ground
+    global on_ground, enemy_on_ground, score, difficulty
     
     if game_state != "game":
         return
+    
+    diamond.update(dt)
 
     # Se morreu, não atualiza mais o jogo
     if current_lifes <= 0:
@@ -247,7 +312,7 @@ def update():
 
     # Pulo
     if keyboard.space and on_ground:
-        velocity_y = -22
+        velocity_y = -18
         on_ground = False
 
     # Gravidade
@@ -277,6 +342,25 @@ def update():
             person.bottom = g.top
             velocity_y = 0
             on_ground = True
+
+    if diamond.active and person.colliderect(diamond.actor):
+        score += 1
+        diamond.collect()
+
+        new_difficulty = score // 10
+
+        if new_difficulty > difficulty:
+            diff_increase = new_difficulty - difficulty
+            difficulty = new_difficulty
+
+            diamond.speed += 17 * diff_increase # aumenta velocidade do diamante UMA VEZ por nível
+
+            for e in enemies:
+                if hasattr(e, 'speed'):
+                    e.speed += 0.5 * diff_increase
+
+
+
 
     # Colisão com inimigo (dano)
     for e in enemies:

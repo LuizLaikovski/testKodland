@@ -84,6 +84,9 @@ class EnemyFly:
         self.actor.x = x
         self.actor.y = y
 
+    def getSpeed():
+        return self.speed
+
     def get_rect(self):
         """Retorna o retângulo do inimigo (útil para colisão)."""
         # Construir um pygame.Rect a partir do Actor (x,y são o centro)

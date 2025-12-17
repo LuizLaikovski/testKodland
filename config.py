@@ -3,8 +3,8 @@
 # ==============================
 
 # Tamanho inicial da janela (pode ser alterado pelo usuário)
-WIDTH = 800
-HEIGHT = 600
+WIDTH = 1000
+HEIGHT = 700
 
 # Flag para saber se é a primeira execução
 first_run = True

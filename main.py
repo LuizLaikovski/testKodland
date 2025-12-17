@@ -4,7 +4,9 @@ from sprites_person import *
 from sprites_bg import *
 from config import *
 from Enemy import EnemyFly
+from EnemySlug import EnemySlug
 from sprites_fly import *
+from sprites_slug import *
 
 # Configurações do Jogo
 game_state = "menu"
@@ -88,6 +90,13 @@ enemies.append(EnemyFly(
     speed=2
 ))
 
+enemies.append(EnemySlug(
+    position_start=(600, GROUND_Y), # Inicia no chão
+    sprite_idle_list=slug_idle,
+    sprite_walk_list_right=slug_walk_right,
+    sprite_walk_list_left=slug_walk_left
+))
+
 # Construir elementos iniciais
 rebuild_game_elements()
 
@@ -155,7 +164,9 @@ def restart_game():
     hurt_timer = 0
     person.x, person.y = 100, 0
     for e in enemies:
-        e.x, e.y = 500, 0
+        # Corrigido: usar e.actor para EnemyFly e EnemySlug
+        if hasattr(e, 'actor'):
+            e.actor.x, e.actor.y = 500, 0
 
 # FUNÇÃO DE CLIQUE DO MOUSE
 def on_mouse_down(pos):
@@ -175,6 +186,7 @@ def on_mouse_down(pos):
             music_on = not music_on
             if music_on:
                 music.play('musicbackground')
+                pass
             else:
                 music.stop()
             if sound_on:
@@ -241,13 +253,22 @@ def update():
     # Gravidade
     velocity_y += gravity
     person.y += velocity_y
-    
-    # Atualizar inimigos
+
+    # Atualizar inimigos - APENAS UMA VEZ!
     for e in enemies:
-        e.update()
+        if isinstance(e, EnemySlug):
+            e.update() # A lesma terrestre não precisa mais de grounds
+        else:
+            e.update(enemies_list=enemies) # Passar a lista completa para colisão entre voadores
+        
         # Limitar inimigos aos limites da tela
-        e.x = max(0, min(e.actor.x, current_width - 50))
-        e.y = max(0, min(e.actor.y, current_height - 100))
+        if hasattr(e, 'actor'):
+            # Não forçar a lesma a permanecer dentro da tela — ela pode sair para reaparecer
+            if isinstance(e, EnemySlug):
+                e.actor.y = max(0, min(e.actor.y, current_height - 100))
+            else:
+                e.actor.x = max(0, min(e.actor.x, current_width - 50))
+                e.actor.y = max(0, min(e.actor.y, current_height - 100))
 
     # Colisão com chão (personagem)
     on_ground = False
@@ -257,16 +278,16 @@ def update():
             velocity_y = 0
             on_ground = True
 
-    # Colisão com chão (inimigo)
+    # Colisão com inimigo (dano)
     for e in enemies:
-        for g in grounds:
-            if e.actor.colliderect(g) and enemy_velocity_y >= 0:
-                e.bottom = g.top
-                enemy_velocity_y = 0
-    
-    # colisão de inimigo com inimigo
-    for enemy in enemies:
-        enemy.update(enemies_list=enemies)
+        # Use a custom collision rect if the enemy exposes one (reduces fly damage range)
+        target = e.get_rect() if hasattr(e, 'get_rect') else e.actor
+        if person.colliderect(target) and invencible == 0:
+            current_lifes -= 1
+            invencible = 60
+            hurt_timer = TEMPO_HURT
+            person.image = SPRITE_HURT
+            sounds.eep.play()
 
     # Atualiza sprite de pulo
     if not on_ground and hurt_timer == 0:
@@ -302,15 +323,6 @@ def update():
         hurt_timer -= 1
         if hurt_timer == 0:
             person.image = SPRITE_NORMAL
-
-    # Colisão com inimigo (dano)
-    for e in enemies:
-        if person.colliderect(e.actor) and invencible == 0:
-            current_lifes -= 1
-            invencible = 60
-            hurt_timer = TEMPO_HURT
-            person.image = SPRITE_HURT
-            sounds.eep.play()
 
 # Função especial do pgzero para detectar mudanças de tamanho
 def on_resize(width, height):

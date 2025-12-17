@@ -1,5 +1,5 @@
 import random
-import pygame
+from pygame import Rect
 from pgzero.actor import Actor
 from config import *
 
@@ -95,14 +95,14 @@ class EnemyFly:
             h = int(self.actor.height)
             left = int(self.actor.x - w / 2)
             top = int(self.actor.y - h / 2)
-            rect = pygame.Rect(left, top, w, h)
+            rect = Rect(left, top, w, h)
             # Reduzir largura e altura para diminuir a 'hitbox' (30% width, 20% height)
             shrink_w = int(rect.width * 0.30)
             shrink_h = int(rect.height * 0.20)
             rect.inflate_ip(-shrink_w, -shrink_h)
             return rect
         except Exception:
-            # Fallback: criar retângulo básico sem shrink
+            # Retorno: criar retângulo básico sem redução
             try:
                 w = int(getattr(self.actor, 'width', 0) or 0)
                 h = int(getattr(self.actor, 'height', 0) or 0)

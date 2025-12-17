@@ -9,6 +9,7 @@ from sprites_fly import *
 from sprites_slug import *
 from Diamond import Diamond
 from Difficulty import Difficulty
+import logic
 
 # Configurações do Jogo
 game_state = "menu"
@@ -106,6 +107,17 @@ diamond = Diamond()
 
 # Construir elementos iniciais
 rebuild_game_elements()
+
+# Expor os objetos principais para `game_state` para que módulos separados possam operar sobre os mesmos dados
+import game_state as _game_state
+_game_state.person = person
+_game_state.hearts = hearts
+_game_state.backgrounds = backgrounds
+_game_state.grounds = grounds
+_game_state.enemies = enemies
+_game_state.score = score
+_game_state.difficulty = difficulty
+_game_state.diamond = diamond
 
 # Música de fundo
 music.play('musicbackground')
@@ -210,222 +222,110 @@ def draw_game_over():
 # FUNÇÕES DE INÍCIO E REINÍCIO
 def start_game():
     """Inicia o jogo a partir do menu."""
-    global game_state, velocity_y, current_lifes
-    game_state = "game"
-    velocity_y = 0
-    current_lifes = MAX_LIFES
-    person.x, person.y = 100, 0
-    if music_on:
-        music.play('musicbackground')
+    # delegar para o módulo logic
+    try:
+        logic.start_game()
+    except Exception:
+        # retorno: manter comportamento mínimo existente
+        global game_state, velocity_y, current_lifes
+        game_state = "game"
+        velocity_y = 0
+        current_lifes = MAX_LIFES
+        person.x, person.y = 100, 0
+        if music_on:
+            music.play('musicbackground')
 
 def restart_game():
     """Reinicia o jogo após o Game Over."""
-    global current_lifes, velocity_y, invencible, hurt_timer
-    current_lifes = MAX_LIFES
-    velocity_y = 0
-    invencible = 0
-    hurt_timer = 0
-    person.x, person.y = 100, 0
-    for e in enemies:
-        # Corrigido: usar e.actor para EnemyFly e EnemySlug
-        if hasattr(e, 'actor'):
-            e.actor.x, e.actor.y = 500, 0
+    try:
+        logic.restart_game()
+    except Exception:
+        # retorno: comportamento anterior
+        global current_lifes, velocity_y, invencible, hurt_timer
+        current_lifes = MAX_LIFES
+        velocity_y = 0
+        invencible = 0
+        hurt_timer = 0
+        person.x, person.y = 100, 0
+        for e in enemies:
+            if hasattr(e, 'actor'):
+                e.actor.x, e.actor.y = 500, 0
 
 # FUNÇÃO DE CLIQUE DO MOUSE
 def on_mouse_down(pos):
-    global game_state, music_on, sound_on
-    x, y = pos
+    try:
+        logic.on_mouse_down(pos)
+    except Exception:
+        # retorno: comportamento anterior
+        global game_state, music_on, sound_on
+        x, y = pos
+        if game_state == "menu":
+            if 330 < y < 380:
+                start_game()
+            elif 410 < y < 460:
+                game_state = "options"
+            elif 490 < y < 540:
+                quit()
 
-    if game_state == "menu":
-        if 330 < y < 380:
-            start_game()
-        elif 410 < y < 460:
-            game_state = "options"
-        elif 490 < y < 540:
-            quit()
+        elif game_state == "options":
+            if 330 < y < 380:
+                music_on = not music_on
+                if music_on:
+                    music.play('musicbackground')
+                    pass
+                else:
+                    music.stop()
+                if sound_on:
+                    sounds.eep.set_volume(0)
+            elif 410 < y < 460:
+                sound_on = not sound_on
+            elif 530 < y < 580:
+                game_state = "menu"
 
-    elif game_state == "options":
-        if 330 < y < 380:
-            music_on = not music_on
-            if music_on:
-                music.play('musicbackground')
-                pass
-            else:
-                music.stop()
-            if sound_on:
-                sounds.eep.set_volume(0)
-        elif 410 < y < 460:
-            sound_on = not sound_on
-        elif 530 < y < 580:
+        elif game_state == "game" and current_lifes <= 0:
+            restart_game()
             game_state = "menu"
-
-    elif game_state == "game" and current_lifes <= 0:
-        restart_game()
-        game_state = "menu"
 
 # FUNÇÕES PRINCIPAIS DO PGZERO
 def draw():
-    screen.clear()
-    if game_state == "menu":
-        draw_menu()
-    elif game_state == "options":
-        draw_options()
-    elif game_state == "game":
-        if current_lifes > 0:
-            draw_game()
-        else:
-            draw_game_over()
+    # delegar desenho para o módulo logic
+    try:
+        logic.draw()
+    except Exception:
+        # retorno: manter comportamento simples de desenho anterior
+        screen.clear()
+        if game_state == "menu":
+            draw_menu()
+        elif game_state == "options":
+            draw_options()
+        elif game_state == "game":
+            if current_lifes > 0:
+                draw_game()
+            else:
+                draw_game_over()
 
 def update(dt):
     global invencible, hurt_timer, walk_index, walk_timer, current_lifes, velocity_y, enemy_velocity_y
     global on_ground, enemy_on_ground, score, difficulty
-    
-    if game_state != "game":
+    # delegar para o módulo logic
+    try:
+        logic.update(dt)
+    except Exception:
+        # retorno: sem operação
         return
-    
-    diamond.update(dt)
-
-    # Se morreu, não atualiza mais o jogo
-    if current_lifes <= 0:
-        return
-
-    moving = False
-    direction = None
-
-    # Idle se não estiver se movendo
-    if not keyboard.d and not keyboard.a and not keyboard.w or keyboard.space and not keyboard.s:
-        person.image = SPRITE_NORMAL
-
-    # Movimento horizontal
-    if keyboard.d:
-        person.x += 8
-        moving = True
-        direction = 'right'
-    if keyboard.a:
-        person.x -= 8
-        moving = True
-        direction = 'left'
-
-    # Limitar personagem aos limites da tela
-    person.x = max(0, min(person.x, current_width - 50))
-    person.y = max(0, min(person.y, current_height - 100))
-
-    # Pulo
-    if keyboard.space and on_ground:
-        velocity_y = -18
-        on_ground = False
-
-    # Gravidade
-    velocity_y += gravity
-    person.y += velocity_y
-
-    # Atualizar inimigos - APENAS UMA VEZ!
-    for e in enemies:
-        if isinstance(e, EnemySlug):
-            e.update() # A lesma terrestre não precisa mais de grounds
-        else:
-            e.update(enemies_list=enemies) # Passar a lista completa para colisão entre voadores
-        
-        # Limitar inimigos aos limites da tela
-        if hasattr(e, 'actor'):
-            # Não forçar a lesma a permanecer dentro da tela — ela pode sair para reaparecer
-            if isinstance(e, EnemySlug):
-                e.actor.y = max(0, min(e.actor.y, current_height - 100))
-            else:
-                e.actor.x = max(0, min(e.actor.x, current_width - 50))
-                e.actor.y = max(0, min(e.actor.y, current_height - 100))
-
-    # Colisão com chão (personagem)
-    on_ground = False
-    for g in grounds:
-        if person.colliderect(g) and velocity_y >= 0:
-            person.bottom = g.top
-            velocity_y = 0
-            on_ground = True
-
-    if diamond.active and person.colliderect(diamond.actor):
-        score += 1
-        diamond.collect()
-
-        new_difficulty = score // 10
-
-        if new_difficulty > difficulty:
-            diff_increase = new_difficulty - difficulty
-            difficulty = new_difficulty
-
-            diamond.speed += 17 * diff_increase # aumenta velocidade do diamante UMA VEZ por nível
-
-            for e in enemies:
-                if hasattr(e, 'speed'):
-                    e.speed += 0.5 * diff_increase
-
-
-
-
-    # Colisão com inimigo (dano)
-    for e in enemies:
-        # Use a custom collision rect if the enemy exposes one (reduces fly damage range)
-        target = e.get_rect() if hasattr(e, 'get_rect') else e.actor
-        if person.colliderect(target) and invencible == 0:
-            current_lifes -= 1
-            invencible = 60
-            hurt_timer = TEMPO_HURT
-            person.image = SPRITE_HURT
-            sounds.eep.play()
-
-    # Atualiza sprite de pulo
-    if not on_ground and hurt_timer == 0:
-        if direction == 'right':
-            person.image = jumpingsprite
-        elif direction == 'left':
-            person.image = jumpingsprite_left
-        walk_timer = 0
-
-    # Animação de caminhada
-    elif (keyboard.d or keyboard.a) and on_ground and hurt_timer == 0:
-        walk_timer += 1
-        if walk_timer >= WALK_SPEED:
-            walk_timer = 0
-            walk_index = (walk_index + 1) % len(walk_sprites_person_right)
-            if direction == 'right':
-                person.image = walk_sprites_person_right[walk_index]
-            else:
-                person.image = walk_sprites_person_left[walk_index]
-
-    # Idle
-    elif hurt_timer == 0:
-        person.image = SPRITE_NORMAL
-        walk_index = 0
-        walk_timer = 0
-
-    # Invencibilidade
-    if invencible > 0:
-        invencible -= 1
-
-    # Timer de dano
-    if hurt_timer > 0:
-        hurt_timer -= 1
-        if hurt_timer == 0:
-            person.image = SPRITE_NORMAL
-
 # Função especial do pgzero para detectar mudanças de tamanho
 def on_resize(width, height):
-    global current_width, current_height
-    
-    # Atualizar tamanho atual
-    current_width = width
-    current_height = height
-    
-    # Atualizar configurações dinâmicas
-    update_screen_size(width, height)
-    
-    # Recriar elementos gráficos
-    rebuild_game_elements()
-    
-    # Ajustar limites dos inimigos
-    for e in enemies:
-        if hasattr(e, 'territory_limits'):
-            left, right = e.territory_limits
-            # Ajustar limite direito para não ultrapassar a tela
-            right = min(right, current_width - 50)
-            e.territory_limits = (left, right)
+    try:
+        logic.on_resize(width, height)
+    except Exception:
+        # retorno: comportamento de redimensionamento padrão
+        global current_width, current_height
+        current_width = width
+        current_height = height
+        update_screen_size(width, height)
+        rebuild_game_elements()
+        for e in enemies:
+            if hasattr(e, 'territory_limits'):
+                left, right = e.territory_limits
+                right = min(right, current_width - 50)
+                e.territory_limits = (left, right)

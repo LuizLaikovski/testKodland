@@ -1,6 +1,5 @@
 import random
-import math
-import pygame
+from pygame import Rect
 from pgzero.actor import Actor
 
 class EnemySlug:
@@ -55,7 +54,7 @@ class EnemySlug:
             if self.respawn_timer >= self.respawn_delay:
                 # 40% de chance de reaparecer no lado OPPOSTO ao qual saiu
                 if self.offscreen_side is None:
-                    # fallback: escolha aleatória
+                    # retorno: escolha aleatória
                     respawn_side = random.choice(["left", "right"])
                 else:
                     if random.random() < 0.4:
@@ -175,7 +174,7 @@ class EnemySlug:
             h = int(self.actor.height)
             left = int(self.actor.x - w / 2)
             top = int(self.actor.y - h / 2)
-            rect = pygame.Rect(left, top, w, h)
+            rect = Rect(left, top, w, h)
             shrink_w = int(rect.width * 0.30)
             shrink_h = int(rect.height * 0.30)
             rect.inflate_ip(-shrink_w, -shrink_h)
@@ -186,7 +185,7 @@ class EnemySlug:
                 h = int(getattr(self.actor, 'height', 0) or 0)
                 left = int(getattr(self.actor, 'x', 0) - w / 2)
                 top = int(getattr(self.actor, 'y', 0) - h / 2)
-                return pygame.Rect(left, top, w, h)
+                return Rect(left, top, w, h)
             except Exception:
                 return None
         
@@ -212,7 +211,7 @@ class EnemySlug:
             # definir center Y do actor para que sua bottom == ground_top
             self.actor.y = int(ground_top - (h / 2))
         except Exception:
-            # fallback: não fazer nada
+            # retorno: não fazer nada
             pass
 
     def getSpeed():

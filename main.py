@@ -3,27 +3,27 @@ from pgzero.builtins import Actor, keyboard, mouse, music, sounds
 from sprites_person import *
 from sprites_bg import *
 from config import *
-from Enemy import EnemyFly
-from EnemySlug import EnemySlug
+from enemy import EnemyFly
+from enemy_slug import EnemySlug
 from sprites_fly import *
 from sprites_slug import *
-from Diamond import Diamond
-from Difficulty import Difficulty
+from diamond import Diamond
+from difficulty import Difficulty
 from pygame import Rect
 import game_state as _game_state
 
 # Configurações do Jogo
-game_state = "menu"
+current_game_state = "menu"
 music_on = True
 sound_on = True
 difficulty = Difficulty(difficultyInitial=1)
 
-current_lifes = MAX_LIFES
-invencible = 0
+current_lives = MAX_LIFES
+invincible = 0
 hurt_timer = 0
 
 velocity_y = 0
-enemy_velocity_y = 0
+enemy_vertical_velocity = 0
 on_ground = False
 enemy_on_ground = False
 
@@ -37,7 +37,9 @@ backgrounds = []
 grounds = []
 enemies = []
 score = 0
-difficulty = 0  # dificuldade atual (aumenta a cada 10 pontos)
+difficulty_manager = Difficulty(difficultyInitial=1)
+difficulty_level = 0
+
 
 # UI: botão padrão
 BUTTON_WIDTH = 300
@@ -47,7 +49,7 @@ def make_button_rect(centerx, centery, w=BUTTON_WIDTH, h=BUTTON_HEIGHT):
     return Rect(int(centerx - w//2), int(centery - h//2), int(w), int(h))
 
 def menu_buttons_layout():
-    cx = current_width // 2
+    cx = CURRENT_WIDTH // 2
     return [
         { 'id': 'start', 'label': 'INICIAR', 'rect': make_button_rect(cx, 350) },
         { 'id': 'options', 'label': 'OPÇÕES', 'rect': make_button_rect(cx, 430) },
@@ -55,7 +57,7 @@ def menu_buttons_layout():
     ]
 
 def options_buttons_layout():
-    cx = current_width // 2
+    cx = CURRENT_WIDTH // 2
     return [
         { 'id': 'music', 'label': lambda: f"MÚSICA: {'ON' if music_on else 'OFF'}", 'rect': make_button_rect(cx, 350) },
         { 'id': 'sound', 'label': lambda: f"SONS: {'ON' if sound_on else 'OFF'}", 'rect': make_button_rect(cx, 430) },
@@ -72,8 +74,8 @@ def rebuild_game_elements():
     hearts.clear()
     
     # Recriar fundo
-    for x in range(0, current_width + BG_SIZE, BG_SIZE):
-        for y in range(0, current_height + BG_SIZE, BG_SIZE):
+    for x in range(0, CURRENT_WIDTH + BG_SIZE, BG_SIZE):
+        for y in range(0, CURRENT_HEIGHT + BG_SIZE, BG_SIZE):
             bg = Actor(bg_cloud)
             bg.x = x + BG_SIZE // 2
             bg.y = y + BG_SIZE // 2
@@ -81,14 +83,14 @@ def rebuild_game_elements():
     
     # Recriar chão
     # Linha de cima - grama
-    for x in range(0, current_width + GRASS_SIZE, GRASS_SIZE):
+    for x in range(0, CURRENT_WIDTH + GRASS_SIZE, GRASS_SIZE):
         grass = Actor(ground_grass)
         grass.x = x + GRASS_SIZE // 2
         grass.y = GROUND_Y
         grounds.append(grass)
     
     # Linha de baixo - terra/pedra
-    for x in range(0, current_width + GRASS_SIZE, GRASS_SIZE):
+    for x in range(0, CURRENT_WIDTH + GRASS_SIZE, GRASS_SIZE):
         stone = Actor(ground_earth)
         stone.x = x + GRASS_SIZE // 2
         stone.y = SECOND_GROUND_Y
@@ -148,20 +150,22 @@ if music_on:
     try:
         music.play('musicbackground')
         music.set_volume(0.4)
-    except Exception:
+    except Exception as e:
+        print(f"Error: {e}")
         pass
 
 # FUNÇÕES DE DESENHO
 
 # Desenha o menu principal
 def draw_menu():
-    screen.draw.text("MEU JOGO", center=(current_width//2, 150), fontsize=80)
+    screen.draw.text("MEU JOGO", center=(CURRENT_WIDTH//2, 150), fontsize=80)
     for btn in menu_buttons_layout():
         rect = btn['rect']
         # fundo do botão
         try:
             screen.draw.filled_rect(rect, (30, 30, 30))
-        except Exception:
+        except Exception as e:
+            print(f"Erro: {e}")
             screen.draw.filled_rect(rect, 'black')
         # borda
         screen.draw.rect(rect, 'white')
@@ -171,7 +175,7 @@ def draw_menu():
 
 # Desenha a tela de opções
 def draw_options():
-    screen.draw.text("OPÇÕES", center=(current_width//2, 150), fontsize=80)
+    screen.draw.text("OPÇÕES", center=(CURRENT_WIDTH//2, 150), fontsize=80)
     for btn in options_buttons_layout():
         rect = btn['rect']
         screen.draw.filled_rect(rect, (30, 30, 30))
@@ -181,7 +185,7 @@ def draw_options():
 
 # Desenha o HUD de vidas (só os corações restantes)
 def draw_hud():
-    for i in range(current_lifes):
+    for i in range(current_lives):
         hearts[i].draw()
 
 # Desenha o jogo em execução
@@ -215,7 +219,8 @@ def increase_difficulty(amount):
                 # opcional: limitar velocidade máxima
                 max_speed = 12
                 e.speed = min(max_speed, e.speed + amount)
-        except Exception:
+        except Exception as e:
+            print(f"Erro: {e}")
             pass
 
 
@@ -254,30 +259,27 @@ def draw_score_images(value, topleft=(20, 60), digit_spacing=2):
 # Desenha a tela de Game Over
 def draw_game_over():
     screen.fill((0, 0, 0))
-    screen.draw.text("GAME OVER", center=(current_width//2, current_height//2 - 50), fontsize=100, color="red")
-    screen.draw.text("Clique para voltar ao menu", center=(current_width//2, current_height//2 + 50), fontsize=40, color="white")
+    screen.draw.text("GAME OVER", center=(CURRENT_WIDTH//2, CURRENT_HEIGHT//2 - 50), fontsize=100, color="red")
+    screen.draw.text("Clique para voltar ao menu", center=(CURRENT_WIDTH//2, CURRENT_HEIGHT//2 + 50), fontsize=40, color="white")
 
 # FUNÇÕES DE INÍCIO E REINÍCIO
 def start_game():
     """Inicia o jogo a partir do menu."""
-    global game_state, velocity_y, current_lifes
-    game_state = "game"
+    global current_game_state, velocity_y, current_lives
+    current_game_state = "game"
     _game_state.game_state = "game"
     velocity_y = 0
-    current_lifes = MAX_LIFES
+    current_lives = MAX_LIFES
     person.x, person.y = 100, 0
     if music_on:
-        try:
-            music.play('musicbackground')
-        except Exception:
-            pass
+        music.play('musicbackground')
 
 def restart_game():
     """Reinicia o jogo após o Game Over."""
-    global current_lifes, velocity_y, invencible, hurt_timer
-    current_lifes = MAX_LIFES
+    global current_lives, velocity_y, invincible, hurt_timer
+    current_lives = MAX_LIFES
     velocity_y = 0
-    invencible = 0
+    invincible = 0
     hurt_timer = 0
     person.x, person.y = 100, 0
     for e in enemies:
@@ -286,64 +288,58 @@ def restart_game():
 
 # FUNÇÃO DE CLIQUE DO MOUSE
 def on_mouse_down(pos):
-    global game_state, music_on, sound_on
+    global current_game_state, music_on, sound_on
     x, y = pos
-    if game_state == "menu":
+    if current_game_state == "menu":
         for btn in menu_buttons_layout():
             if btn['rect'].collidepoint((x, y)):
                 if btn['id'] == 'start':
                     start_game()
                 elif btn['id'] == 'options':
-                    game_state = 'options'
+                    current_game_state = 'options'
                     _game_state.game_state = 'options'
                 elif btn['id'] == 'quit':
                     quit()
                 return
 
-    elif game_state == 'options':
+    elif current_game_state == 'options':
         for btn in options_buttons_layout():
             if btn['rect'].collidepoint((x, y)):
                 if btn['id'] == 'music':
                     music_on = not music_on
                     _game_state.music_on = music_on
                     if music_on:
-                        try:
-                            music.play('musicbackground')
-                        except Exception:
-                            pass
+                        music.play('musicbackground')
                     else:
-                        try:
-                            music.stop()
-                        except Exception:
-                            pass
+                        music.stop()
                 elif btn['id'] == 'sound':
                     sound_on = not sound_on
                     _game_state.sound_on = sound_on
                 elif btn['id'] == 'back':
-                    game_state = 'menu'
+                    current_game_state = 'menu'
                     _game_state.game_state = 'menu'
                 return
 
-    elif game_state == 'game' and current_lifes <= 0:
+    elif current_game_state == 'game' and current_lives <= 0:
         restart_game()
-        game_state = 'menu'
+        current_game_state = 'menu'
         _game_state.game_state = 'menu'
 
 # FUNÇÕES PRINCIPAIS DO PGZERO
 def draw():
     screen.clear()
-    if game_state == "menu":
+    if current_game_state == "menu":
         draw_menu()
-    elif game_state == "options":
+    elif current_game_state == "options":
         draw_options()
-    elif game_state == "game":
-        if current_lifes > 0:
+    elif current_game_state == "game":
+        if current_lives > 0:
             draw_game()
         else:
             draw_game_over()
 
 def update(dt):
-    global invencible, hurt_timer, walk_index, walk_timer, current_lifes, velocity_y, enemy_velocity_y
+    global invincible, hurt_timer, walk_index, walk_timer, current_lives, velocity_y, enemy_vertical_velocity
     global on_ground, enemy_on_ground, score, difficulty
 
     if _game_state.game_state != 'game':
@@ -353,12 +349,13 @@ def update(dt):
     try:
         if _game_state.diamond:
             _game_state.diamond.update(dt)
-    except Exception:
+    except Exception as e:
+        print(f"Erro: {e}")
         pass
 
     # Se o jogador estiver morto, pular atualizações
     try:
-        if current_lifes <= 0:
+        if current_lives <= 0:
             return
     except Exception:
         pass
@@ -383,16 +380,19 @@ def update(dt):
 
     # Limitar jogador à tela
     if _game_state.person:
-        _game_state.person.x = max(0, min(_game_state.person.x, current_width - 50))
-        _game_state.person.y = max(0, min(_game_state.person.y, current_height - 100))
+        _game_state.person.x = max(0, min(_game_state.person.x, CURRENT_WIDTH - 50))
+        _game_state.person.y = max(0, min(_game_state.person.y, CURRENT_HEIGHT - 100))
 
     # Pulo
     if keyboard.space and on_ground:
         velocity_y = -18
+        if sound_on:
+            sounds.jumpeffect.set_volume(0.1)
+            sounds.jumpeffect.play()
         globals()['on_ground'] = False
 
     # Gravidade
-    globals()['velocity_y'] += gravity
+    globals()['velocity_y'] += GRAVITY
     if _game_state.person:
         _game_state.person.y += velocity_y
 
@@ -407,8 +407,8 @@ def update(dt):
             if isinstance(e, EnemySlug):
                 e.place_on_ground()
             else:
-                e.actor.x = max(0, min(e.actor.x, current_width - 50))
-                e.actor.y = max(0, min(e.actor.y, current_height - 100))
+                e.actor.x = max(0, min(e.actor.x, CURRENT_WIDTH - 50))
+                e.actor.y = max(0, min(e.actor.y, CURRENT_HEIGHT - 100))
 
     # Colisão com o chão (jogador)
     globals()['on_ground'] = False
@@ -430,9 +430,9 @@ def update(dt):
                 sounds.diamondseffect.play()
 
             new_difficulty = score // 10
-            if new_difficulty > difficulty:
-                diff_increase = new_difficulty - difficulty
-                globals()['difficulty'] = new_difficulty
+            if new_difficulty > difficulty_level:
+                diff_increase = new_difficulty - difficulty_level
+                difficulty_level = new_difficulty
 
                 # aumentar velocidade do diamante uma vez por nível
                 try:
@@ -458,9 +458,9 @@ def update(dt):
                 print(f"Erro: {e}")
         target = rect if rect is not None else (e.actor if hasattr(e, 'actor') else None)
         try:
-            if target is not None and _game_state.person.colliderect(target) and invencible == 0:
-                globals()['current_lifes'] -= 1
-                globals()['invencible'] = 60
+            if target is not None and _game_state.person.colliderect(target) and invincible == 0:
+                globals()['current_lives'] -= 1
+                globals()['invincible'] = 60
                 globals()['hurt_timer'] = TEMPO_HURT
                 if _game_state.person:
                     _game_state.person.image = SPRITE_HURT
@@ -502,8 +502,8 @@ def update(dt):
         globals()['walk_timer'] = 0
 
     # Invencibilidade
-    if invencible > 0:
-        globals()['invencible'] -= 1
+    if invincible > 0:
+        globals()['invincible'] -= 1
 
     # Timer de dano
     if hurt_timer > 0:
@@ -519,13 +519,13 @@ def on_resize(width, height):
         logic.on_resize(width, height)
     except Exception:
         # retorno: comportamento de redimensionamento padrão
-        global current_width, current_height
-        current_width = width
-        current_height = height
+        global CURRENT_WIDTH, CURRENT_HEIGHT
+        CURRENT_WIDTH = width
+        CURRENT_HEIGHT = height
         update_screen_size(width, height)
         rebuild_game_elements()
         for e in enemies:
             if hasattr(e, 'territory_limits'):
                 left, right = e.territory_limits
-                right = min(right, current_width - 50)
+                right = min(right, CURRENT_WIDTH - 50)
                 e.territory_limits = (left, right)

@@ -84,7 +84,7 @@ class EnemyFly:
         self.actor.x = x
         self.actor.y = y
 
-    def getSpeed():
+    def getSpeed(self):
         return self.speed
 
     def get_rect(self):

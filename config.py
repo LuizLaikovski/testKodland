@@ -27,11 +27,11 @@ GRASS_SIZE = 70      # Tamanho do sprite do chão
 # NOTA: GROUND_Y será calculado dinamicamente
 
 # Física do jogo
-gravity = 1          # Força da gravidade aplicada aos personagens
+GRAVITY = 1          # Força da gravidade aplicada aos personagens
 
 # Variáveis para armazenar o tamanho atual da tela
-current_width = WIDTH
-current_height = HEIGHT
+CURRENT_WIDTH = WIDTH
+CURRENT_HEIGHT = HEIGHT
 
 # Função para calcular posições dinâmicas
 def update_screen_size(width, height):

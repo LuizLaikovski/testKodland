@@ -218,7 +218,7 @@ class EnemySlug:
             # retorno: não fazer nada
             pass
 
-    def getSpeed():
+    def getSpeed(self):
         return self.speed
 
     def draw(self):
